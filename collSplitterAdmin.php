@@ -4,17 +4,17 @@
 
 function jsonReq($url, $opts) {
   $opts = $opts ?: [];
-  $headers = $opts['headers'] ?: [];
-  $opts['method'] = $opts['method'] ?: ( isset($opts['data']) ? 'POST' : 'GET' );
+  $headers = isset($opts['headers']) ? $opts['headers']  : [];
+  $method = isset($opts['method']) ? $opts['method'] : ( isset($opts['data']) ? 'POST' : 'GET' );
   $ch = curl_init($url);
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
   curl_setopt($ch, CURLOPT_HEADER, false);
-  if ($opts['method'] === 'POST') {
+  if ($method === 'POST') {
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $data = $opts['data']);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $opts['data']);
     $headers[] = 'Content-Type: application/json';
-    $headers[] = 'Content-Length: ' . strlen($data);
-  } elseif ($opts['method'] === 'DELETE') {curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");}
+    $headers[] = 'Content-Length: ' . strlen($opts['data']);
+  } elseif ($method === 'DELETE') {curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");}
   curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
   try {$r = curl_exec($ch);}
   catch (Exception $e) {echo $r = $e;}
@@ -22,25 +22,25 @@ function jsonReq($url, $opts) {
   return $r;
 }
 
-if (isset($_GET['debug'])) {
+//if (isset($_GET['debug'])) {
   ini_set('display_errors', 1);
   ini_set('display_startup_errors', 1);
   error_reporting(E_ALL);
-  if (isset($_GET['debug']) && $_GET['debug'] === '0') {echo '<pre>' . var_export($_SESSION, true) . "\n\n" . var_export($_SERVER, true) . '</pre>';}
-}
+  //if (isset($_GET['debug']) && $_GET['debug'] === 'prevars') {echo '<pre>' . var_export($_SESSION, true) . "\n\n" . var_export($_SERVER, true) . '</pre>';}
+//}
 
 session_start();
 $API = parse_ini_file(__DIR__ . '/ShopifyAPI.ini');
 
-if (isset($_SESSION['shop']) && isset($_GET['url'])) {
+if (isset($_SESSION['shop'])) {if (isset($_GET['url'])) {
+  
   header('Content-Type: application/json');
   $opts = ['headers' => ["X-Shopify-Access-Token: {$_SESSION['oauth']}"]];
   if (( $opts['method'] = $_SERVER['REQUEST_METHOD']) === 'POST' ) {$opts['data'] = file_get_contents('php://input');}
-  $r = jsonReq('https://' . $_SESSION['shop'] . $_GET['url'], $opts);
+  $r = jsonReq("https://$_SESSION[shop]$_GET[url]", $opts);
   die($r);
-}
-
-if (!isset($_SESSION['shop'])) {
+  
+}} else {
   
   !isset($_GET['hmac']) && die("<script>top.location.href='https://" . (
     isset($_GET['shop']) && preg_match('/^[a-zA-Z0-9\-]+.myshopify.com$/', $_GET['shop'])
@@ -52,19 +52,18 @@ if (!isset($_SESSION['shop'])) {
   (['timestamp'] < (time() - 24 * 60 * 60)) && die('Request parameter {timestamp} is older than a day');
   $hmac = $_GET['hmac'];
   unset($_GET['hmac']);
-  foreach ($_GET as $key=>$val) $params[] = "$key=$val";
+  foreach ($_GET as $k => $v) $params[] = "$k=$v";
   asort($params);
   $params = implode('&', $params);
   ($hmac == hash_hmac('sha256', $params, $API['SHARED_SECRET'])) or die('Request parameter {hmac} is invalid');;
   
-  !isset($_GET['code']) && die("<script>top.location.href='https://{$_GET['shop']}/admin/oauth/authorize?client_id={$API['KEY']}&scope=read_products,write_products&redirect_uri=" . urlencode('https://' . $_SERVER['SERVER_NAME'] . $_SERVER['SCRIPT_NAME']) . "';</script>");
+  !isset($_GET['code']) && die("<script>top.location.href='https://{$_GET['shop']}/admin/oauth/authorize?client_id={$API['KEY']}&scope=read_products,write_products&redirect_uri=" . urlencode("https://$_SERVER[SERVER_NAME]$_SERVER[SCRIPT_NAME]") . "';</script>");
   
-  $res = json_decode(jsonReq("https://{$_GET['shop']}/admin/oauth/access_token", ['data' => json_encode([
+  $_SESSION['oauth'] = json_decode(jsonReq("https://{$_GET['shop']}/admin/oauth/access_token", ['data' => json_encode([
     'client_id' => $API['KEY'],
     'client_secret' => $API['SHARED_SECRET'],
     'code' => $_GET['code']
-  ])]));
-  $_SESSION['oauth'] = $res->access_token;
+  ])]))->access_token;
   $_SESSION['shop'] = $_GET['shop'];
   unset($_SESSION['install']);
   die("<script>top.location.href='https://{$_SESSION['shop']}/admin/apps/collection-splitter';</script>");
@@ -88,6 +87,8 @@ html, body {
   width: 100%;
   height: 100%;
   margin: 0;
+  color: #212b36;
+  background-color: #f4f6f8;
   font-family: Tahoma, Sans Serif;
 }
 
@@ -105,10 +106,18 @@ a:hover {
 }
 
 
+#collSplitter_display { /* > :nth-child(3) { /* view */
+  box-sizing: border-box;
+  padding-top: 2rem;
+  width: 100%;
+  height: 100%;
+  overflow-y: scroll;
+}
+
 #collSplitter_display > :nth-child(1) { /* errorView */
   width: 100%;
 }
-#collSplitter_display > :nth-child(1) > div { /* error element */
+.Shopify_collSplitterErr { /* errEl */
   width: 100%;
   box-sizing: border-box;
   background-color: #a00;
@@ -116,41 +125,42 @@ a:hover {
   border-radius: 0.3rem;
   border: 1px solid #f8f8f8;
 }
-
-#collSplitter_display > :nth-child(3) { /* view */
-  width: 100%;
-  height: 100%;
-}
-#collSplitter_display > :nth-child(3) > div { /* collection */
+.Shopify_collection {
   display: flex;
   flex-direction: row;
   box-sizing: border-box;
   width: 100%;
-  border: 2px solid #1c2260;
+  border: 2px solid #00084b;
   border-radius: 0.5rem;
 }
-#collSplitter_display > :nth-child(3) > div > * {margin: 0.5rem;}
-#collSplitter_display > :nth-child(3) > div > span { /* collection fields */
+.Shopify_collection > * {margin: 0.5rem;}
+.Shopify_collection > span { /* collection fields */
   flex: auto;
   text-align: center;
 }
 
 #collSplitter_display > :nth-child(2) { /* spinner */
-  width: 40px;
-  height: 40px;
+  width: 4rem;
+  height: 4rem;
   background-color: #1c2260;
-  margin: 100px auto;
+  margin: 8rem auto;
   -webkit-animation: sk-rotateplane 1.2s infinite ease-in-out;
   animation: sk-rotateplane 1.2s infinite ease-in-out;
 }
 
 
 #collSplitter_bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: row;
   width: 100%;
-  min-height: 2rem;
+  height: 2rem;
 }
+//body {padding-top: 2rem;}
+
 #collSplitter_bar > * {
   height: 100%;
   min-height: 2rem;
@@ -167,6 +177,7 @@ a:hover {
   vertical-align: middle;
   line-height: 2rem;
   font-weight: bold;
+  background-color: #f4f6f8;
 }
 
 #collSplitter_bar > input {width: 5rem;}
@@ -236,11 +247,13 @@ a:hover {
     log(...msg) {if(this.debug) {console.info(...msg);} return msg.length > 1 ? msg : msg[0];},
     error(err) {
       console.error(err);
-      let errEl = collSplitter.errorView.appendChild(document.createElement('div'));
+      let errEl = document.createElement('div');
+      errEl.className = 'Shopify_collSplitterErr';
       errEl.closeB = errEl.appendChild(document.createElement('button'));
       errEl.appendChild(document.createTextNode(' ' + err));
       errEl.closeB.innerText = 'Dismiss';
       errEl.closeB.addEventListener('click', collSplitter.dismissError);
+      collSplitter.errorView.appendChild(errEl);
       return err;
     },
     dismissError(ev) {
@@ -273,7 +286,7 @@ a:hover {
         resolve(this.fetchJSON(url, post));
       }
       res = res.json();
-      if(res.errors) (console.error(res.errors));
+      if(res.errors) (this.error(res.errors));
       return res;
     },
     
@@ -301,28 +314,28 @@ a:hover {
       this.showSpinner(false);
       for(let typeIndex in this.collTypes) {
         let type = this.collTypes[typeIndex], typeTag = type.substr(0, type.indexOf('_')), collsSets = res[typeIndex];
-        for(let collsSet of collsSets) {for(let coll of collsSet[type]) {
-          this.view.appendChild(this.mkCollectionEl(coll, typeTag));
-        }}
+        for(let collsSet of collsSets) {for(let coll of collsSet[type]) {this.view.appendChild(this.mkCollectionEl(coll, typeTag));}}
       }
       return res;
     },
     
     mkCollectionEl(coll, type) {
-      let el = document.createElement('div'),
-      chkB = el.appendChild(document.createElement('input'));
+      let el = document.createElement('div'), chkB = el.appendChild(document.createElement('input'));
       el.id = 'shopifyCollection_' + coll.id;
+      el.className = 'Shopify_collection';
       chkB.type = 'checkbox';
-      chkB.coll = {
-        id: coll.id,
-        title: coll.title,
-        type: coll.type = type,
-        chkB: chkB
-      };
+      chkB.coll = this.mkCollData(coll, type);
       chkB.addEventListener('click', this.chkB_click);
-      for(let i of ['title', 'handle', 'id', 'type']) {el.appendChild(document.createElement('span')).innerHTML = '<b>' + i + ': </b><a href="https://' + this.shopURL + '/admin/collections/' + coll.id + '" target="_blank">' +coll[i] + '</a>';}
+      for(let dataLabel in chkB.coll) {
+        let field = document.createElement('span'), fieldA = document.createElement('a');
+        field.appendChild(document.createElement('span')).innerText = dataLabel + ': ';
+        fieldA.innerText = chkB.coll[dataLabel], fieldA.target = '_blank', fieldA.href = 'https://' + this.shopURL + '/admin/collections/' + coll.id;
+        field.appendChild(fieldA), el.appendChild(field);
+      }
+      chkB.coll.chkB = chkB;
       return el;
     },
+    mkCollData({title, handle, id}, type) {return ({title, handle, id, type});},
     
     
     updPending(chkB) {
@@ -374,10 +387,10 @@ a:hover {
       tar.innerText = 'processing...';
       for(let i in collSplitter.pending) {proms.push(collSplitter[act + 'Coll'](i));}
       Promise.all(proms).then(ret => {
-        for(let {chkB} of Object.values(collSplitter.pending)) {
+        for(let {chkB} of Object.values(collSplitter.pending)) {if(chkB.checked) {
           chkB.checked = false;
           collSplitter.updPending(chkB);
-        }
+        }}
         delete collSplitter.working;
         tar.innerText = act;
         tar.disabled = false;
