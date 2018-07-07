@@ -161,8 +161,8 @@ a:hover {
   flex-direction: row;
   width: 100%;
   height: 2rem;
+  overflow: hidden;
 }
-//body {padding-top: 2rem;}
 
 #collSplitter_bar > * {
   height: 100%;
@@ -182,8 +182,9 @@ a:hover {
   font-weight: bold;
   background-color: #f4f6f8;
 }
+#collSplitter_bar > span > span {float:right;}
 
-#collSplitter_bar > input {width: 5rem;}
+#collSplitter_bar > input, #collSplitter_bar > span {width: 3rem;}
 
 
 @-webkit-keyframes sk-rotateplane {
@@ -214,7 +215,7 @@ a:hover {
   <button>refresh</button>
   <button>split</button>
   <button>delete</button>
-  <span>max size:</span>
+  <span><span>:</span>max size</span>
   <input type="number" value="5">
 </div>
 <div id="collSplitter_display">
