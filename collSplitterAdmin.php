@@ -110,7 +110,7 @@ a:hover {
 #collSplitter_display > :nth-child(1) { /* errorView */
   width: 100%;
 }
-#collSplitter_display > :nth-child(1) > div {
+#collSplitter_display > :nth-child(1) > div { /* error element */
   width: 100%;
   box-sizing: border-box;
   background-color: #a00;
@@ -123,7 +123,7 @@ a:hover {
   width: 100%;
   height: 100%;
 }
-#collSplitter_display > :nth-child(3) > div {
+#collSplitter_display > :nth-child(3) > div { /* collection */
   display: flex;
   flex-direction: row;
   box-sizing: border-box;
@@ -132,7 +132,7 @@ a:hover {
   border-radius: 0.5rem;
 }
 #collSplitter_display > :nth-child(3) > div > * {margin: 0.5rem;}
-#collSplitter_display > :nth-child(3) > div > span {
+#collSplitter_display > :nth-child(3) > div > span { /* collection fields */
   flex: auto;
   text-align: center;
 }
@@ -199,10 +199,10 @@ a:hover {
 <body>
 
 <div id="collSplitter_bar">
-  <button>Refresh</button>
-  <button>Split selected</button>
-  <button>Delete selected</button>
-  <span>Max size:</span>
+  <button>refresh</button>
+  <button>split</button>
+  <button>delete</button>
+  <span>max size:</span>
   <input type="number" value="5">
 </div>
 <div id="collSplitter_display">
@@ -215,11 +215,10 @@ a:hover {
 
 (function Shopify_CollectionSplitter() {'use strict';
     
-  Object.defineProperty(HTMLElement.prototype, 'rmTextChildren', {
-    enumerable: false,
-    configurable: true,
-    value: function() {for(let node of this.childNodes) {if(node.nodeType === 3) {this.removeChild(node);}} return this.childNodes;}
-  });
+  Object.defineProperty(HTMLElement.prototype, 'rmTextChildren', {value: function() {
+    for(let node of this.childNodes) {if(node.nodeType === 3) {this.removeChild(node);}}
+    return this.childNodes;
+  }});
 
   let collSplitter = {
     
@@ -242,11 +241,11 @@ a:hover {
       let errEl = this.errorView.appendChild(document.createElement('div'));
       errEl.closeB = errEl.appendChild(document.createElement('button'));
       errEl.closeB.innerText = 'Dismiss';
-      errEl.closeB.addEventListener('click', this.closeError);
+      errEl.closeB.addEventListener('click', this.dismissError);
       errEl.appendChild(document.createTextNode(' ' + err));
       return err;
     },
-    closeError(ev) {
+    dismissError(ev) {
       let errEl = ev.target.parentNode;
       errEl.parentNode.removeChild(errEl);
     },
@@ -378,10 +377,10 @@ a:hover {
     chkB_change(ev) {collSplitter.updPending(ev.target);},
     
     bClick(ev) {
-      let tar = ev.target, act = tar.bType, proms = [];
+      let tar = ev.target, act = tar.innerText, proms = [];
       if(!confirm('Are you sure you want to ' + act + ' the selected collections?')) {return false;}
       tar.disabled = true;
-      tar.innerText = 'Processing...';
+      tar.innerText = 'processing...';
       for(let i in collSplitter.pending) {proms.push(collSplitter[act + 'Coll'](i.slice(2)));}
       Promise.all(proms).then(ret => {
         for(let i in collSplitter.pending) {
@@ -389,7 +388,7 @@ a:hover {
           chkB.checked = false;
           collSplitter.updPending(chkB);
         }
-        tar.innerText = act.charAt(0).toUpperCase() + act.slice(1) + ' selected';
+        tar.innerText = act;
         tar.disabled = false;
       }).catch(collSplitter.error);
     },
@@ -400,8 +399,6 @@ a:hover {
       [this.refreshB, this.submitB, this.delB, , this.maxSize] = this.bar.rmTextChildren();
       this.fetchSlots = this.parallelFetches;
       this.headers = {'Content-Type': 'application/json'};
-      this.submitB.bType = 'split';
-      this.delB.bType = 'delete';
       this.refreshB.addEventListener('click', this.refreshView.bind(this));
       this.submitB.addEventListener('click', this.bClick);
       this.delB.addEventListener('click', this.bClick);
