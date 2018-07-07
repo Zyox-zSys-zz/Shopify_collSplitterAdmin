@@ -103,7 +103,7 @@ a:visited {
 }
 a:hover {
   color: #000;
-  text-shadow: #afa 0px 1px;
+  text-shadow: #1c2260 0px 1px;
 }
 
 
@@ -112,11 +112,12 @@ a:hover {
 }
 #collSplitter_display > :nth-child(1) > div {
   width: 100%;
+  box-sizing: border-box;
   background-color: #a00;
+  color: #fff;
   border-radius: 0.3rem;
-  border: 3px solid #000;
+  border: 1px solid #f8f8f8;
 }
-
 
 #collSplitter_display > :nth-child(3) { /* view */
   width: 100%;
@@ -127,7 +128,7 @@ a:hover {
   flex-direction: row;
   box-sizing: border-box;
   width: 100%;
-  border: 2px solid #222;
+  border: 2px solid #1c2260;
   border-radius: 0.5rem;
 }
 #collSplitter_display > :nth-child(3) > div > * {margin: 0.5rem;}
@@ -139,7 +140,7 @@ a:hover {
 #collSplitter_display > :nth-child(2) { /* spinner */
   width: 40px;
   height: 40px;
-  background-color: #8f4;
+  background-color: #1c2260;
   margin: 100px auto;
   -webkit-animation: sk-rotateplane 1.2s infinite ease-in-out;
   animation: sk-rotateplane 1.2s infinite ease-in-out;
@@ -240,9 +241,14 @@ a:hover {
       console.error(err);
       let errEl = this.errorView.appendChild(document.createElement('div'));
       errEl.closeB = errEl.appendChild(document.createElement('button'));
-      errEl.innerHTML += err;
+      errEl.closeB.innerText = 'Dismiss';
       errEl.closeB.addEventListener('click', this.closeError);
+      errEl.appendChild(document.createTextNode(' ' + err));
       return err;
+    },
+    closeError(ev) {
+      let errEl = ev.target.parentNode;
+      errEl.parentNode.removeChild(errEl);
     },
     
     showSpinner(show = true) {return this.spinner.style.display = show ? 'block' : 'none';},
@@ -333,7 +339,7 @@ a:hover {
         return true;
       } else {
         delete this.pending['c_' + chkB.coll.id];
-        chkB.parentNode.style.borderColor = '#222';
+        chkB.parentNode.style.borderColor = '#1c2260';
         return false;
       }
       //this.submitB.setAttribute('title', 'Split ' + Object.keys(this.pending).length + ' selected collections');
@@ -370,11 +376,6 @@ a:hover {
     
     
     chkB_change(ev) {collSplitter.updPending(ev.target);},
-    
-    closeError(ev) {
-      let errEl = ev.target.parentNode;
-      errEl.parentNode.removeChild(errEl);
-    },
     
     bClick(ev) {
       let tar = ev.target, act = tar.bType, proms = [];
