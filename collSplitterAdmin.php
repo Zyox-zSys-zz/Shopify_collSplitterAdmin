@@ -22,14 +22,6 @@ function jsonReq($url, $opts) {
   return $r;
 }
 
-function splitterReq($url) {
-  header('Content-Type: application/json');
-  $data = ['headers' => ["X-Shopify-Access-Token: {$_SESSION['oauth']}"]];
-  if (( $data['method'] = $_SERVER['REQUEST_METHOD']) === 'POST' ) {$data['data'] = file_get_contents('php://input');}
-  $r = jsonReq('https://' . $_SESSION['shop'] . $url, $data);
-  die($r);
-}
-
 if (isset($_GET['debug'])) {
   ini_set('display_errors', 1);
   ini_set('display_startup_errors', 1);
@@ -40,7 +32,13 @@ if (isset($_GET['debug'])) {
 session_start();
 $API = parse_ini_file(__DIR__ . '/ShopifyAPI.ini');
 
-isset($_SESSION['shop']) && isset($_GET['url']) && splitterReq($_GET['url']);
+if (isset($_SESSION['shop']) && isset($_GET['url'])) {
+  header('Content-Type: application/json');
+  $opts = ['headers' => ["X-Shopify-Access-Token: {$_SESSION['oauth']}"]];
+  if (( $opts['method'] = $_SERVER['REQUEST_METHOD']) === 'POST' ) {$opts['data'] = file_get_contents('php://input');}
+  $r = jsonReq('https://' . $_SESSION['shop'] . $_GET['url'], $opts);
+  die($r);
+}
 
 if (!isset($_SESSION['shop'])) {
   
@@ -238,11 +236,11 @@ a:hover {
     log(...msg) {if(this.debug) {console.info(...msg);} return msg.length > 1 ? msg : msg[0];},
     error(err) {
       console.error(err);
-      let errEl = this.errorView.appendChild(document.createElement('div'));
+      let errEl = collSplitter.errorView.appendChild(document.createElement('div'));
       errEl.closeB = errEl.appendChild(document.createElement('button'));
-      errEl.closeB.innerText = 'Dismiss';
-      errEl.closeB.addEventListener('click', this.dismissError);
       errEl.appendChild(document.createTextNode(' ' + err));
+      errEl.closeB.innerText = 'Dismiss';
+      errEl.closeB.addEventListener('click', collSplitter.dismissError);
       return err;
     },
     dismissError(ev) {
