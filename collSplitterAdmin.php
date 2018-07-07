@@ -125,6 +125,7 @@ a:hover {
   border-radius: 0.3rem;
   border: 1px solid #f8f8f8;
 }
+
 .Shopify_collection {
   display: flex;
   flex-direction: row;
@@ -135,9 +136,11 @@ a:hover {
 }
 .Shopify_collection > * {margin: 0.5rem;}
 .Shopify_collection > span { /* collection fields */
-  flex: auto;
-  text-align: center;
+  flex: 1 1;
+  text-align: left;
 }
+.Shopify_collection > span:nth-child(4) {flex: 0.7 0.7;}
+.Shopify_collection > span:nth-child(5) {flex: 0.5 0.5;}
 
 #collSplitter_display > :nth-child(2) { /* spinner */
   width: 4rem;
