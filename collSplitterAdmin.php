@@ -252,7 +252,7 @@ a:hover {
     
     
     async fetchJSON(url, post) {
-      if(!this.haveFetchSlot()) {return this.enqueueFetch(url, post);}
+      if(this.fetchSlots <= 0) {return this.enqueueFetch(url, post);}
       this.fetchSlots--;
       return fetch(this.adminURL + escape(url), {
         method: post == null ? 'GET' : ( post === false ? 'DELETE' : 'POST' ),
@@ -262,8 +262,6 @@ a:hover {
       }).then(res => this.gotFetch(res, url, post)).catch(this.error);
     },
     
-    haveFetchSlot() {return this.fetchSlots > 0 /*&& this.queue.length === 0*/;},
-    
     async enqueueFetch(url, post) {return new Promise((resolve, reject) => {
       this.queue.push([url, post, resolve]);
     })},
@@ -272,7 +270,7 @@ a:hover {
       if(res.status == 508) {return this.enqueueFetch(url, post);}
       this.fetchSlots++;
       if(!res.ok) {return this.error(res);}
-      if(this.queue.length !== 0 && this.haveFetchSlot()) {
+      if(this.queue.length !== 0 && this.fetchSlots > 0) {
         let [url, post, resolve] = this.queue.shift();
         resolve(this.fetchJSON(url, post));
       }
@@ -323,7 +321,7 @@ a:hover {
         type: coll.type = type,
         chkB: chkB
       };
-      chkB.addEventListener('change', this.chkB_change);
+      chkB.addEventListener('click', this.chkB_click);
       for(let i of ['title', 'handle', 'id', 'type']) {el.appendChild(document.createElement('span')).innerHTML = '<b>' + i + ': </b><a href="https://' + this.shopURL + '/admin/collections/' + coll.id + '" target="_blank">' +coll[i] + '</a>';}
       return el;
     },
@@ -372,10 +370,14 @@ a:hover {
     },
     
     
-    chkB_change(ev) {collSplitter.updPending(ev.target);},
+    chkB_click(ev) {
+      if(collSplitter.working) {return ev.preventDefault();};
+      collSplitter.updPending(ev.target);
+    },
     
     bClick(ev) {
       let tar = ev.target, act = tar.innerText, proms = [];
+      collSplitter.working = true;
       if(!confirm('Are you sure you want to ' + act + ' the selected collections?')) {return false;}
       tar.disabled = true;
       tar.innerText = 'processing...';
@@ -386,6 +388,7 @@ a:hover {
           chkB.checked = false;
           collSplitter.updPending(chkB);
         }
+        delete collSplitter.working;
         tar.innerText = act;
         tar.disabled = false;
       }).catch(collSplitter.error);
