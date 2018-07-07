@@ -262,9 +262,7 @@ a:hover {
       }).then(res => this.gotFetch(res, url, post)).catch(this.error);
     },
     
-    async enqueueFetch(url, post) {return new Promise((resolve, reject) => {
-      this.queue.push([url, post, resolve]);
-    })},
+    async enqueueFetch(url, post) {return new Promise((resolve, reject) => {this.queue.push([url, post, resolve]);})},
       
     async gotFetch(res, url, post) {
       if(res.status == 508) {return this.enqueueFetch(url, post);}
@@ -328,16 +326,9 @@ a:hover {
     
     
     updPending(chkB) {
-      if(chkB.checked) {
-        this.pending['c_' + chkB.coll.id] = chkB.coll;
-        chkB.parentNode.style.borderColor = '#f00';
-        return true;
-      } else {
-        delete this.pending['c_' + chkB.coll.id];
-        chkB.parentNode.style.borderColor = '#1c2260';
-        return false;
-      }
-      //this.submitB.setAttribute('title', 'Split ' + Object.keys(this.pending).length + ' selected collections');
+      chkB.parentNode.style.borderColor = chkB.checked
+      ? (this.pending[chkB.coll.id] = chkB.coll, '#f00')
+      : (delete this.pending[chkB.coll.id], this.defaultBorder);
     },
     
     async splitColl(collId) {
@@ -355,14 +346,14 @@ a:hover {
     
     async mkCollectionFrom(collId, items, count) {
       return this.fetchJSON('custom_collections.json', {custom_collection: {
-        title: this.pending['c_' + collId].title + '-' + count,
+        title: this.pending[collId].title + '-' + count,
         collects: items
       }})
       .then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')));
     },
     
     async deleteColl(id) {
-      return this.fetchJSON(this.pending['c_' + id].type + '_collections/' + id + '.json', false)
+      return this.fetchJSON(this.pending[id].type + '_collections/' + id + '.json', false)
       .then(res => {
         let el = document.getElementById('shopifyCollection_' + id);
         el.parentNode.removeChild(el);
@@ -381,10 +372,9 @@ a:hover {
       if(!confirm('Are you sure you want to ' + act + ' the selected collections?')) {return false;}
       tar.disabled = true;
       tar.innerText = 'processing...';
-      for(let i in collSplitter.pending) {proms.push(collSplitter[act + 'Coll'](i.slice(2)));}
+      for(let i in collSplitter.pending) {proms.push(collSplitter[act + 'Coll'](i));}
       Promise.all(proms).then(ret => {
-        for(let i in collSplitter.pending) {
-          let chkB = collSplitter.pending[i].chkB;
+        for(let {chkB} of Object.values(collSplitter.pending)) {
           chkB.checked = false;
           collSplitter.updPending(chkB);
         }
@@ -403,14 +393,13 @@ a:hover {
       this.refreshB.addEventListener('click', this.refreshView.bind(this));
       this.submitB.addEventListener('click', this.bClick);
       this.delB.addEventListener('click', this.bClick);
-      this.refreshView();
+      this.refreshView().then(() => this.defaultBorder = this.view.firstChild.style.borderColor);
       return this;
     }
     
   };
   
   if(collSplitter.debug) {window.Shopify_collSplitter = collSplitter;}
-  //return collSplitter.init();
   window.addEventListener('load', function() {return collSplitter.init();});
   
 })();
