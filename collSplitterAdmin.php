@@ -42,8 +42,7 @@ if (isset($_SESSION['shop'])) {if (isset($_GET['url'])) {
   header('Content-Type: application/json');
   $opts = ['headers' => [(substr($_SESSION['oauth'], 0, 5) === 'Basic' ? 'Authorization: ' : 'X-Shopify-Access-Token: ') . $_SESSION['oauth']]];
   if (( $opts['method'] = $_SERVER['REQUEST_METHOD']) === 'POST' ) {$opts['data'] = file_get_contents('php://input');}
-  $r = jsonReq("https://$_SESSION[shop]$_GET[url]", $opts);
-  die($r);
+  die(jsonReq("https://$_SESSION[shop]$_GET[url]", $opts));
   
 }} else {
   
@@ -351,7 +350,7 @@ a:hover {
       }
       this.getCollCount(coll.id, el.lastChild.lastChild);
       chkB.coll.sort_order = coll.sort_order;
-      chkB.coll.type = coll.type;
+      chkB.coll.type = type;
       chkB.coll.chkB = chkB;
       return el;
     },
