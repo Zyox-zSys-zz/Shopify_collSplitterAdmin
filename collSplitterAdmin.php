@@ -1,7 +1,7 @@
 <?php
 
 (function () {
-
+    
 function jsonReq($url, $opts) {
   $opts = $opts ?: [];
   $headers = isset($opts['headers']) ? $opts['headers']  : [];
@@ -22,34 +22,56 @@ function jsonReq($url, $opts) {
   return $r;
 }
 
+session_start();
+
 //if (isset($_GET['debug'])) {
-  ini_set('display_errors', 1);
-  ini_set('display_startup_errors', 1);
-  error_reporting(E_ALL);
-  //if (isset($_GET['debug']) && $_GET['debug'] === 'prevars') {echo '<pre>' . var_export($_SESSION, true) . "\n\n" . var_export($_SERVER, true) . '</pre>';}
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+//if (isset($_GET['debug']) && $_GET['debug'] === 'prevars') {echo "<pre>\n\n" . var_export($_SESSION, true) . "\n\n" . var_export($_SERVER, true) . '</pre>';}
 //}
 
-session_start();
-$API = parse_ini_file(__DIR__ . '/ShopifyAPI.ini');
+if (isset($_GET['logout'])) {
+  header('WWW-Authenticate: Basic realm="Shopify private API key (cancel to install as regular app)"');
+  header('HTTP/1.0 401 Unauthorized');
+  unset($_SESSION['shop']);
+}
 
 if (isset($_SESSION['shop'])) {if (isset($_GET['url'])) {
   
   header('Content-Type: application/json');
-  $opts = ['headers' => ["X-Shopify-Access-Token: {$_SESSION['oauth']}"]];
+  $opts = ['headers' => [(substr($_SESSION['oauth'], 0, 5) === 'Basic' ? 'Authorization: ' : 'X-Shopify-Access-Token: ') . $_SESSION['oauth']]];
   if (( $opts['method'] = $_SERVER['REQUEST_METHOD']) === 'POST' ) {$opts['data'] = file_get_contents('php://input');}
   $r = jsonReq("https://$_SESSION[shop]$_GET[url]", $opts);
   die($r);
   
 }} else {
   
+  if(!isset($_GET['hmac'])) {
+    
+    if(!isset($_SERVER['PHP_AUTH_USER']) && !isset($_SERVER['HTTP_AUTHORIZATION']) && !isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {header('WWW-Authenticate: Basic realm="Shopify private API key (cancel to install as regular app)"');}
+  
+    if(isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {$_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];} // custom rule for x-mapp fcgi php in .htaccess: SetEnvIf Authorization .+ HTTP_AUTHORIZATION=$0
+    if(isset($_SERVER['HTTP_AUTHORIZATION'])) {list($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW']) = explode(':', base64_decode(substr($_SERVER['HTTP_AUTHORIZATION'], 6)));}
+
+    if(!empty($_SERVER['PHP_AUTH_USER'])) {
+      (!isset($_GET['shop']) || !preg_match('/^[a-zA-Z0-9\-]+.myshopify.com$/', $_GET['shop'])) && die("<script>top.location.href='https://$_SERVER[PHP_AUTH_USER]:$_SERVER[PHP_AUTH_PW]@$_SERVER[HTTP_HOST]$_SERVER[SCRIPT_NAME]?shop=' + prompt('Enter a valid Shopify shop URL', 'shop_name.myshopify.com');</script>");
+      $_SESSION['shop'] = $_GET['shop'];
+      $_SESSION['oauth'] = $_SERVER['HTTP_AUTHORIZATION'] ?: 'Basic ' . base64_encode("$_SERVER[PHP_AUTH_USER]:$_SERVER[PHP_AUTH_PW]");
+      return;
+    }
+  
+  }
+  
+  $API = parse_ini_file(__DIR__ . '/ShopifyAPI.ini');
+  
   !isset($_GET['hmac']) && die("<script>top.location.href='https://" . (
     isset($_GET['shop']) && preg_match('/^[a-zA-Z0-9\-]+.myshopify.com$/', $_GET['shop'])
     ? $_GET['shop']
-    : "' + prompt('Enter a valid Shopify shop URL', 'shop_name.myshopify.com') + '"
+    : "' + prompt('Enter a valid Shopify shop URL for Shopify\'s initial request', 'shop_name.myshopify.com') + '"
   ) . "/admin/api/auth?api_key={$API['KEY']}';</script>");
   
-  !isset($_GET['timestamp']) && die('Request parameter {timestamp} missing');
-  (['timestamp'] < (time() - 24 * 60 * 60)) && die('Request parameter {timestamp} is older than a day');
+  (!isset($_GET['timestamp']) || (['timestamp'] < (time() - 24 * 60 * 60))) && die('Request parameter {timestamp} is missing or older than a day');
   $hmac = $_GET['hmac'];
   unset($_GET['hmac']);
   foreach ($_GET as $k => $v) $params[] = "$k=$v";
@@ -57,7 +79,7 @@ if (isset($_SESSION['shop'])) {if (isset($_GET['url'])) {
   $params = implode('&', $params);
   ($hmac == hash_hmac('sha256', $params, $API['SHARED_SECRET'])) or die('Request parameter {hmac} is invalid');;
   
-  !isset($_GET['code']) && die("<script>top.location.href='https://{$_GET['shop']}/admin/oauth/authorize?client_id={$API['KEY']}&scope=read_products,write_products&redirect_uri=" . urlencode("https://$_SERVER[SERVER_NAME]$_SERVER[SCRIPT_NAME]") . "';</script>");
+  !isset($_GET['code']) && die("<script>top.location.href='https://{$_GET['shop']}/admin/oauth/authorize?client_id={$API['KEY']}&scope=read_products,write_products&redirect_uri=" . urlencode("https://$_SERVER[HTTP_HOST]$_SERVER[SCRIPT_NAME]") . "';</script>");
   
   $_SESSION['oauth'] = json_decode(jsonReq("https://{$_GET['shop']}/admin/oauth/access_token", ['data' => json_encode([
     'client_id' => $API['KEY'],
@@ -65,9 +87,8 @@ if (isset($_SESSION['shop'])) {if (isset($_GET['url'])) {
     'code' => $_GET['code']
   ])]))->access_token;
   $_SESSION['shop'] = $_GET['shop'];
-  unset($_SESSION['install']);
-  die("<script>top.location.href='https://{$_SESSION['shop']}/admin/apps/collection-splitter';</script>");
-  
+  die("<script>top.location.href='https://{$_SESSION['shop']}/admin/apps';</script>");
+
 }
 
 //if (isset($_GET['debug']) && $_GET['debug'] === 'vars') {echo '<pre>' . var_export($_SESSION, true) . "\n\n" . var_export($_SERVER, true) . '</pre>';}
@@ -213,8 +234,8 @@ a:hover {
 
 <div id="collSplitter_bar">
   <button>refresh</button>
-  <button>split</button>
-  <button>delete</button>
+  <button name="split">split</button>
+  <button name="delete">delete</button>
   <span><span>:</span>max size</span>
   <input type="number" value="5">
 </div>
@@ -235,7 +256,7 @@ a:hover {
 
   let collSplitter = {
     
-    adminURL: '<?php echo (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] === "on" ? "https" : "http") . "://$_SERVER[SERVER_NAME]$_SERVER[SCRIPT_NAME]"; ?>?url=/admin/',
+    adminURL: '<?php echo /*(!isset($_SERVER["HTTPS"]) ? "http" : "https") .*/ "https://$_SERVER[HTTP_HOST]$_SERVER[SCRIPT_NAME]"; ?>?url=/admin/',
     shopURL: '<?php echo $_SESSION["shop"]; ?>',
     parallelFetches: 6,
     debug: <?php echo isset($_GET['debug']) ? 'true' : 'false'; ?>,
@@ -269,7 +290,7 @@ a:hover {
     
     
     async fetchJSON(url, post) {
-      if(this.fetchSlots <= 0) {return this.enqueueFetch(url, post);}
+      if(this.fetchSlots <= 0) {return new Promise((resolve, reject) => {this.queue.push([url, post, resolve]);});}
       this.fetchSlots--;
       return fetch(this.adminURL + escape(url), {
         method: post == null ? 'GET' : ( post === false ? 'DELETE' : 'POST' ),
@@ -278,17 +299,11 @@ a:hover {
         headers: this.headers
       }).then(res => this.gotFetch(res, url, post)).catch(this.error);
     },
-    
-    async enqueueFetch(url, post) {return new Promise((resolve, reject) => {this.queue.push([url, post, resolve]);})},
-      
     async gotFetch(res, url, post) {
       if(res.status == 508) {return this.enqueueFetch(url, post);}
       this.fetchSlots++;
       if(!res.ok) {return this.error(res);}
-      if(this.queue.length !== 0 && this.fetchSlots > 0) {
-        let [url, post, resolve] = this.queue.shift();
-        resolve(this.fetchJSON(url, post));
-      }
+      if(this.queue.length !== 0 && this.fetchSlots > 0) {this.queue[0].pop()(this.fetchJSON(...this.queue.shift()));}
       res = res.json();
       if(res.errors) (this.error(res.errors));
       return res;
@@ -304,16 +319,14 @@ a:hover {
     },
     
     async getCollections(type) {
+      this.collCountQ = [];
       return this.fetchJSON(type + '/count.json')
       .then(res => {
         let proms = [];
-        for(let page = 1, pages = Math.ceil(res.count/250); page <= pages; page++) {
-          proms.push(this.fetchJSON(type + '.json?limit=250&page=' + page));
-        }
+        for(let page = 1, pages = Math.ceil(res.count/250); page <= pages; page++) {proms.push(this.fetchJSON(type + '.json?limit=250&page=' + page));}
         return Promise.all(proms);
       })
     },
-    
     renderCollections(res) {
       this.showSpinner(false);
       for(let typeIndex in this.collTypes) {
@@ -328,7 +341,7 @@ a:hover {
       el.id = 'shopifyCollection_' + coll.id;
       el.className = 'Shopify_collection';
       chkB.type = 'checkbox';
-      chkB.coll = this.mkCollData(coll, type);
+      chkB.coll = this.mkCollData(coll);
       chkB.addEventListener('click', this.chkB_click);
       for(let dataLabel in chkB.coll) {
         let field = document.createElement('span'), fieldA = document.createElement('a');
@@ -336,10 +349,20 @@ a:hover {
         fieldA.innerText = chkB.coll[dataLabel], fieldA.target = '_blank', fieldA.href = 'https://' + this.shopURL + '/admin/collections/' + coll.id;
         field.appendChild(fieldA), el.appendChild(field);
       }
+      this.getCollCount(coll.id, el.lastChild.lastChild);
+      chkB.coll.sort_order = coll.sort_order;
+      chkB.coll.type = coll.type;
       chkB.coll.chkB = chkB;
       return el;
     },
-    mkCollData({title, handle, id}, type) {return ({title, handle, id, type});},
+    mkCollData({title, handle, id}, type) {return ({title, handle, id, count:'...'});},
+    async getCollCount(id, el) {return this.fetchSlots > 0
+      ? this.fetchJSON('products/count.json?collection_id=' + id).then((res) => {
+          el.innerText = res.count;
+          if(this.collCountQ.length !== 0) {while(this.fetchSlots) {this.getCollCount(...this.collCountQ.shift());}}
+        })
+      : this.collCountQ.push([id, el]);
+    },
     
     
     updPending(chkB) {
@@ -348,26 +371,21 @@ a:hover {
       : (delete this.pending[chkB.coll.id], this.defaultBorder);
     },
     
+    
     async splitColl(collId) {
       let maxSize = this.maxSize.value;
       return this.fetchJSON('collects.json?collection_id=' + collId).then(res => {
         let items = res.collects, subItems, t = 0, proms = [];
-        while(t++, (subItems = items.splice(0, maxSize)).length !== 0) {
-          proms.push(this.mkCollectionFrom(collId, subItems.map(this.extractProduct), t));
-        }
+        while(t++, (subItems = items.splice(0, maxSize)).length !== 0) {proms.push(this.mkCollectionFrom(collId, subItems.map(this.extractProduct), t));}
         return Promise.all(proms);
       }).catch(this.error);
     },
-    
     extractProduct(item) {return {product_id: item.product_id};},
-    
-    async mkCollectionFrom(collId, items, count) {
-      return this.fetchJSON('custom_collections.json', {custom_collection: {
-        title: this.pending[collId].title + '-' + count,
-        collects: items
-      }})
-      .then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')));
-    },
+    async mkCollectionFrom(collId, items, number) {return this.fetchJSON('custom_collections.json', {custom_collection: {
+      title: this.pending[collId].title + '-' + number,
+      collects: items,
+      sort_order: this.pending[collId].sort_order
+    }}).then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')));},
     
     async deleteColl(id) {
       return this.fetchJSON(this.pending[id].type + '_collections/' + id + '.json', false)
@@ -384,10 +402,9 @@ a:hover {
     },
     
     bClick(ev) {
-      let tar = ev.target, act = tar.innerText, proms = [];
-      collSplitter.working = true;
+      let tar = ev.target, act = tar.name, proms = [];
       if(!confirm('Are you sure you want to ' + act + ' the selected collections?')) {return false;}
-      tar.disabled = true;
+      collSplitter.working = tar.disabled = true;
       tar.innerText = 'processing...';
       for(let i in collSplitter.pending) {proms.push(collSplitter[act + 'Coll'](i));}
       Promise.all(proms).then(ret => {
