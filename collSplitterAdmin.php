@@ -299,8 +299,8 @@ a:hover {
       }).then(res => this.gotFetch(res, url, post)).catch(this.error);
     },
     async gotFetch(res, url, post) {
-      if(res.status == 508) {return this.enqueueFetch(url, post);}
       this.fetchSlots++;
+      if(res.status == 508) {return new Promise((resolve, reject) => {this.queue.push([url, post, resolve]);});}
       if(!res.ok) {return this.error(res);}
       if(this.queue.length !== 0 && this.fetchSlots > 0) {this.queue[0].pop()(this.fetchJSON(...this.queue.shift()));}
       res = res.json();
@@ -381,7 +381,7 @@ a:hover {
     },
     extractProduct(item) {return {product_id: item.product_id};},
     async mkCollectionFrom(collId, items, number) {return this.fetchJSON('custom_collections.json', {custom_collection: {
-      title: this.pending[collId].title + '-' + number,
+      handle: this.pending[collId].handle + '-' + number,
       collects: items,
       sort_order: this.pending[collId].sort_order
     }}).then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')));},
