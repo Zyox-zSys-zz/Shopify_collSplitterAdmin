@@ -382,9 +382,10 @@ a:hover {
     extractProduct(item) {return {product_id: item.product_id};},
     async mkCollectionFrom(collId, items, number) {return this.fetchJSON('custom_collections.json', {custom_collection: {
       handle: this.pending[collId].handle + '-' + number,
+      title: this.pending[collId].title  + '-' + number,
       collects: items,
       sort_order: this.pending[collId].sort_order
-    }}).then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')));},
+    }}).then(res => this.view.appendChild(this.mkCollectionEl(res.custom_collection, 'custom')))},
     
     async deleteColl(id) {
       return this.fetchJSON(this.pending[id].type + '_collections/' + id + '.json', false)

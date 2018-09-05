@@ -1,7 +1,7 @@
 # Shopify Collection Splitter
 ### Split Shopify Product Collections into mini-collections of up to a selectable amount of items.
 Uses the Promise API to prevent unresponsiveness even with massive lists of collections.
-###### Requires: ES8+ (latest Javascript; Firefox and Chrome are up-to-date), and PHP7+ (if self-hosted) and SSL (required by Shopify)
+###### Requires: ES8+ (latest Javascript; Firefox and Chrome are up-to-date), PHP7+ (if self-hosted) and SSL (required by Shopify)
 
 #### Setup:
 
